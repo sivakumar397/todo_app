@@ -41,7 +41,7 @@ import axios from 'axios'
 export default {
   data() {
     return {
-      email: '',
+      user_name: '',
       password: '',
     }
   },
@@ -60,6 +60,18 @@ export default {
         // Store the token in localStorage
         localStorage.setItem('authToken', token)
         localStorage.setItem('username', username)
+
+        // Now, get the user_id by username
+        const userIdResponse = await axios.post(
+          `${apiUrl}/users/findUserId`,
+          { user_name: this.user_name },
+          { headers: { Authorization: `Bearer ${token}` } }, // Pass token for authorization if required
+        )
+
+        const { user_id } = userIdResponse.data
+
+        // Store the user_id in localStorage
+        localStorage.setItem('user_id', user_id)
 
         this.$router.push('/homepage') // Redirect to a dashboard or home after login
       } catch (error) {

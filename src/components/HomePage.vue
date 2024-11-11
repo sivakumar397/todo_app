@@ -44,35 +44,8 @@
 
     <!-- Create Task Form (Visible when showCreateForm is true) -->
     <transition name="fade-slide">
-      <div v-if="showCreateForm" class="task-form">
-        <h3>Create Task</h3>
-        <form @submit.prevent="createTask">
-          <div class="input-group">
-            <label for="task-name">Task Name</label>
-            <input v-model="taskName" id="task-name" type="text" required />
-          </div>
-          <div class="input-group">
-            <label for="description">Description</label>
-            <textarea v-model="description" id="description" required></textarea>
-          </div>
-          <div class="date-flex">
-            <div class="input-group">
-              <label for="start-date">Start Date</label>
-              <input v-model="startDate" type="date" id="start-date" required />
-            </div>
-            <div class="input-group">
-              <label for="end-date">End Date</label>
-              <input v-model="endDate" type="date" id="end-date" required />
-            </div>
-          </div>
-          <div class="form-buttons">
-            <button type="submit" class="save-btn">Save</button>
-            <button type="button" @click="cancelCreate" class="cancel-btn">Cancel</button>
-          </div>
-        </form>
-      </div>
+      <TaskForm v-if="showCreateForm" :user_id="userId" @task-created="addTaskToTable" />
     </transition>
-
     <!-- Import Task Section -->
 
     <!-- Import Form (Visible when showImportForm is true) -->
@@ -104,11 +77,24 @@
         </div>
       </div>
     </transition>
+
+    <!-- Task List -->
+    <div>
+      <TaskList :tasks="tasks" @edit-task="editTask" @delete-task="deleteTask" />
+    </div>
   </div>
 </template>
 
 <script>
+import TaskForm from '@/components/TaskForm.vue' // Import the TaskForm component
+import TaskList from '@/components/TaskList.vue' // Import the TaskForm component
+import axios from 'axios'
+
 export default {
+  components: {
+    TaskForm, // Register TaskForm as a local component
+    TaskList,
+  },
   data() {
     return {
       searchTerm: '',
@@ -116,15 +102,21 @@ export default {
       showImportForm: false,
       taskName: '',
       description: '',
+      priority: '',
+      status: '',
       startDate: '',
       endDate: '',
       file: null,
       username: null, // To hold the username
+      userId: null, // Set as null initially, will be loaded from localStorage
+      tasks: [], // List of tasks fetched from the backend
     }
   },
   mounted() {
-    // Get the username from localStorage when the component mounts
+    // Retrieve username and user_id from localStorage when the component mounts
     this.username = localStorage.getItem('username')
+    this.userId = localStorage.getItem('user_id')
+    this.fetchTasks()
   },
   methods: {
     createTask() {
@@ -172,10 +164,25 @@ export default {
       this.file = null
       this.showImportForm = false
     },
+    async fetchTasks() {
+      try {
+        const response = await axios.get(`${process.env.VUE_APP_API_URL}/task?user_id=${user_id}`)
+        this.tasks = response.data
+      } catch (error) {
+        console.error('Error fetching tasks:', error)
+      }
+    },
+    addTaskToTable(task) {
+      // Add the new task to the tasks array
+      this.tasks.push(task)
+      this.showCreateForm = false // Hide the create task form
+    },
+
     logout() {
       // Clear authentication data (e.g., remove token from localStorage)
       localStorage.removeItem('authToken') // Adjust depending on how you're storing the token
       localStorage.removeItem('username')
+      localStorage.removeItem('user_id')
       // Redirect to login page (assuming you're using Vue Router)
       this.$router.push('/login') // Ensure that you have a login route defined in Vue Router
     },
