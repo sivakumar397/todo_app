@@ -57,9 +57,38 @@ export const getTasksByUserId = async (req, res) => {
   }
 }
 
+// Controller function to update a task by task_id
+export const updateTask = async (req, res) => {
+  const { task_id } = req.params
+  const { task_name, description, priority, status, start_date, end_date } = req.body
+
+  try {
+    // Check if task exists
+    const existingTask = await Task.getTaskById(task_id)
+    if (!existingTask) {
+      return res.status(404).json({ message: 'Task not found' })
+    }
+
+    // Update the task
+    const updatedTask = await Task.update({
+      task_id,
+      task_name,
+      description,
+      priority,
+      status,
+      start_date,
+      end_date,
+    })
+
+    return res.status(200).json({ message: 'Task updated', task: updatedTask })
+  } catch (error) {
+    console.error('Error updating task:', error)
+    return res.status(500).json({ message: 'Internal server error' })
+  }
+}
+
 export const deleteTask = async (req, res) => {
   const { task_id } = req.params
-
   try {
     const result = await Task.deleteTask(task_id)
     if (result) {

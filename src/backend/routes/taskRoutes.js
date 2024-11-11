@@ -1,5 +1,10 @@
 import express from 'express'
-import { createTask, getTasksByUserId, deleteTask } from '../controllers/taskController.js'
+import {
+  createTask,
+  getTasksByUserId,
+  deleteTask,
+  updateTask,
+} from '../controllers/taskController.js'
 
 const router = express.Router()
 
@@ -11,5 +16,8 @@ router.get('/task', getTasksByUserId)
 
 // Route for deleting a task
 router.delete('/task/:task_id', deleteTask)
+
+// Route for updating a task by task_id
+router.put('/task/:task_id', updateTask)
 
 export default router
