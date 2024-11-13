@@ -27,6 +27,25 @@ export const createTask = async (req, res) => {
   }
 }
 
+// Controller function to handle bulk task creation with user_id
+export const createBulkTasks = async (req, res) => {
+  try {
+    const { user_id, tasks } = req.body
+
+    // Validate input: Ensure user_id and tasks array are provided
+    if (!user_id || !Array.isArray(tasks) || tasks.length === 0) {
+      return res.status(400).json({ message: 'User ID and an array of tasks are required.' })
+    }
+
+    // Create tasks in bulk with the user_id
+    const newTasks = await Task.createBulk(user_id, tasks)
+    return res.status(201).json({ message: 'Tasks added', tasks: newTasks })
+  } catch (error) {
+    console.error('Error creating bulk tasks:', error)
+    return res.status(500).json({ message: 'Internal server error' })
+  }
+}
+
 // Controller function to handle fetching tasks by user_id
 export const getTasksByUserId = async (req, res) => {
   const { user_id } = req.query
@@ -44,6 +63,7 @@ export const getTasksByUserId = async (req, res) => {
     const formattedTasks = tasks.map((task) => ({
       task_id: task.task_id,
       task_name: task.task_name,
+      description: task.description,
       priority: task.priority,
       status: task.status,
       start_date: task.start_date,

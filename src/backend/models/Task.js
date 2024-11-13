@@ -22,10 +22,39 @@ const Task = {
     return result.rows[0]
   },
 
+  // Method to create tasks in bulk, including the user_id for each task
+  createBulk: async (user_id, tasks) => {
+    const query = `
+      INSERT INTO tasks (user_id, task_name, description, priority, status, start_date, end_date)
+      VALUES ${tasks
+        .map(
+          (_, index) =>
+            `($${index * 7 + 1}, $${index * 7 + 2}, $${index * 7 + 3}, $${index * 7 + 4}, $${index * 7 + 5}, $${index * 7 + 6}, $${index * 7 + 7})`,
+        )
+        .join(', ')}
+      RETURNING *;
+    `
+    // Flatten the task details along with the user_id
+    const values = tasks.flatMap(
+      ({ task_name, description, priority, status, start_date, end_date }) => [
+        user_id, // Add user_id for each task
+        task_name,
+        description,
+        priority,
+        status || 'OPEN',
+        start_date,
+        end_date,
+      ],
+    )
+
+    const result = await db.query(query, values)
+    return result.rows
+  },
+
   // Fetch tasks by user_id
   getTasksByUserId: async (user_id) => {
     const query = `
-      SELECT task_id, task_name, priority, status, start_date, end_date
+      SELECT task_id, task_name, description, priority, status, start_date, end_date
       FROM tasks
       WHERE user_id = $1
     `

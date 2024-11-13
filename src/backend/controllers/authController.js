@@ -16,13 +16,15 @@ export const register = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    const { user_name, password } = req.body
-    const user = await User.findByUsername(user_name)
+    const { email, password } = req.body
+    const user = await User.findByEmail(email) // Find user by email
     if (!user || !bcrypt.compareSync(password, user.password)) {
-      return res.status(400).json({ error: 'Invalid username or password.' })
+      return res.status(400).json({ error: 'Invalid email or password.' })
     }
+    // Create JWT token with the user_id
     const token = jwt.sign({ id: user.user_id }, process.env.JWT_SECRET, { expiresIn: '1h' })
-    res.json({ token, user_id: user.user_id })
+    // Send back the token and user_id
+    res.json({ token, user_id: user.user_id, user_name: user.user_name })
   } catch (err) {
     res.status(500).json({ error: 'Error logging in:', err })
   }

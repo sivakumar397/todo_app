@@ -1,6 +1,7 @@
 import express from 'express'
 import {
   createTask,
+  createBulkTasks,
   getTasksByUserId,
   deleteTask,
   updateTask,
@@ -10,6 +11,9 @@ const router = express.Router()
 
 // Route for creating a task
 router.post('/task', createTask)
+
+// Route for creating tasks in bulk
+router.post('/task/bulk_add', createBulkTasks)
 
 // Route for fetching tasks by user_id
 router.get('/task', getTasksByUserId)

@@ -4,14 +4,8 @@
       <h2 class="title">Login</h2>
       <form @submit.prevent="login">
         <div class="input-group">
-          <label for="user_name">Username</label>
-          <input
-            v-model="user_name"
-            id="user_name"
-            type="user_name"
-            placeholder="Enter your username"
-            required
-          />
+          <label for="email">Email</label>
+          <input v-model="email" id="email" type="email" placeholder="Enter your email" required />
         </div>
         <div class="input-group">
           <label for="password">Password</label>
@@ -41,7 +35,8 @@ import axios from 'axios'
 export default {
   data() {
     return {
-      user_name: '',
+      //user_name: '',
+      email: '',
       password: '',
     }
   },
@@ -50,12 +45,13 @@ export default {
       try {
         const apiUrl = process.env.VUE_APP_API_URL
         const response = await axios.post(`${apiUrl}/auth/login`, {
-          user_name: this.user_name,
+          // user_name: this.user_name,
+          email: this.email, // Use email instead of  user_name
           password: this.password,
         })
         // Assume the token is in response.data.token (or adjust based on your API)
         const token = response.data.token
-        const username = this.user_name
+        const username = response.data.user_name
 
         // Store the token in localStorage
         localStorage.setItem('authToken', token)
@@ -64,7 +60,7 @@ export default {
         // Now, get the user_id by username
         const userIdResponse = await axios.post(
           `${apiUrl}/users/findUserId`,
-          { user_name: this.user_name },
+          { user_name: response.data.user_name },
           { headers: { Authorization: `Bearer ${token}` } }, // Pass token for authorization if required
         )
 

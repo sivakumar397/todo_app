@@ -100,6 +100,7 @@ export default {
         if (response.status === 201) {
           // Emit event with the new task data after successful creation
           this.$emit('task-created', response.data.task)
+          window.location.reload()
         } else {
           alert('Failed to create task.')
         }

@@ -29,11 +29,12 @@
           ><i class="fas fa-plus"></i> Create
         </b-button>
 
-        <b-button variant="outline-dark" @click="showImportForm = !showImportForm"
-          ><i class="fas fa-upload"></i>
-          Import
+        <b-button variant="outline-dark" @click="triggerFileUpload">
+          <i class="fas fa-upload"></i> Import
         </b-button>
-        <b-button variant="outline-dark" @click="showImportForm = !showImportForm"
+        <!-- Hidden file input triggered by button -->
+        <input type="file" ref="fileInput" style="display: none" @change="handleImportTask" />
+        <b-button variant="outline-dark" @click="exportTasksToCSV"
           ><i class="fas fa-download"></i>
           Export
         </b-button>
@@ -117,6 +118,8 @@ export default {
     this.username = localStorage.getItem('username')
     this.userId = localStorage.getItem('user_id')
     this.fetchTasks()
+    //this.exportTasksToCSV()
+    //this.submitImport()
   },
   methods: {
     createTask() {
@@ -155,7 +158,7 @@ export default {
         // Handle the file upload logic (send it to backend or process here)
         this.showImportForm = false
       } else {
-        alert('Please upload a file before submitting.')
+        alert('Please upload a file before submitting22.')
       }
     },
 
@@ -166,8 +169,17 @@ export default {
     },
     async fetchTasks() {
       try {
+        const user_id = localStorage.getItem('user_id')
         const response = await axios.get(`${process.env.VUE_APP_API_URL}/task?user_id=${user_id}`)
-        this.tasks = response.data
+        // Check if response contains data
+        console.log('Response from API:', response)
+
+        if (response.data && Array.isArray(response.data)) {
+          this.tasks = response.data
+          console.log('Tasks successfully fetched and assigned:', this.tasks)
+        } else {
+          console.warn('Unexpected data format or no tasks found in response:', response.data)
+        }
       } catch (error) {
         console.error('Error fetching tasks:', error)
       }
@@ -176,6 +188,146 @@ export default {
       // Add the new task to the tasks array
       this.tasks.push(task)
       this.showCreateForm = false // Hide the create task form
+    },
+    triggerFileUpload() {
+      this.$refs.fileInput.click()
+    },
+    async handleImportTask(event) {
+      this.file = event.target.files[0] // Assign the file directly
+      if (this.file) {
+        const fileType = this.file.type
+
+        try {
+          if (fileType === 'application/json') {
+            // JSON import
+            const tasks = await this.parseJSONFile(this.file)
+            this.tasks.push(...tasks)
+          } else if (fileType === 'text/csv') {
+            // CSV import
+            const tasks = await this.parseCSVFile(this.file)
+            // Send parsed tasks to backend
+            const response = await axios.post(`${process.env.VUE_APP_API_URL}/task/bulk_add`, {
+              user_id: this.userId,
+              tasks: tasks,
+            })
+
+            // Check if tasks were successfully added
+            if (response.data) {
+              this.fetchTasks() // Refresh the task list after bulk create
+              window.location.reload()
+              // this.tasks.push(...response.data) // Append new tasks to the tasks array
+              console.log('Tasks successfully added in bulk:', response.data)
+            } else {
+              console.warn('Unexpected response from bulk add:', response.data)
+            }
+
+            // this.tasks.push(...tasks)
+          } else {
+            alert('Unsupported file format. Please upload a JSON or CSV file.')
+          }
+
+          // Clear the import form and file after upload
+          this.showImportForm = false
+          this.file = null
+        } catch (error) {
+          console.error('Error importing tasks:', error)
+          alert('Error importing tasks. Please check the file format.')
+        }
+      } else {
+        alert('Please upload a file before submitting11.')
+      }
+    },
+
+    // Helper method to parse JSON files
+    async parseJSONFile(file) {
+      const text = await file.text()
+      const data = JSON.parse(text)
+
+      // Ensure each item matches task structure
+      return data.map((task) => ({
+        task_id: task.task_id,
+        task_name: task.task_name,
+        description: task.description,
+        priority: task.priority,
+        status: task.status,
+        start_date: task.start_date,
+        end_date: task.end_date,
+      }))
+    },
+
+    // Helper method to parse CSV files
+    async parseCSVFile(file) {
+      const text = await file.text()
+      const rows = text.trim().split('\n')
+      const headers = rows[0].split(',')
+
+      // Map CSV rows to task objects
+      return rows.slice(1).map((row) => {
+        const values = row.split(',')
+        const task = {}
+        headers.forEach((header, index) => {
+          task[header.trim().toLowerCase().replace(' ', '_')] = values[index].trim()
+        })
+        return {
+          task_id: task.task_id,
+          task_name: task.task_name,
+          description: task.description,
+          priority: task.priority,
+          status: task.status,
+          start_date: task.start_date,
+          end_date: task.end_date,
+        }
+      })
+    },
+
+    // Method to export tasks to CSV
+    async exportTasksToCSV() {
+      const userId = localStorage.getItem('user_id')
+      const response = await axios.get(`${process.env.VUE_APP_API_URL}/task?user_id=${userId}`)
+      // Check if response contains data
+      console.log('Response from API:', response.data)
+      this.tasks = response.data
+      // Check if tasks array has data
+      if (!this.tasks || this.tasks.length === 0) {
+        alert('No tasks available to export.')
+        return
+      }
+
+      // Define CSV headers and rows
+      const headers = [
+        'Task ID',
+        'Task Name',
+        'Description',
+        'Priority',
+        'Status',
+        'Start Date',
+        'End Date',
+      ]
+      const rows = this.tasks.map((task) => [
+        task.task_id,
+        task.task_name,
+        task.description,
+        task.priority,
+        task.status,
+        task.start_date,
+        task.end_date,
+      ])
+
+      // Generate CSV content
+      const csvContent = [
+        headers.join(','), // add headers row
+        ...rows.map((row) => row.join(',')), // add each task as a row
+      ].join('\n')
+
+      // Create a blob and trigger download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `tasks_${new Date().toISOString().slice(0, 10)}.csv`
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
     },
 
     logout() {
