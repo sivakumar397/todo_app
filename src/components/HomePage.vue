@@ -480,7 +480,7 @@ export default {
           `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
         )
         const locationData = response.data
-        this.location = `${locationData.address.village != undefined ? locationData.address.village : locationData.address.road},  ${locationData.address.state_district}, ${
+        this.location = `${locationData.address.village != undefined ? locationData.address.village : locationData.address.residential},  ${locationData.address.state_district}, ${
           locationData.address.country
         }`
       } catch (error) {
