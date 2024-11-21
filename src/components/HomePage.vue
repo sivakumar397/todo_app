@@ -1,11 +1,74 @@
 <template>
-  <div class="home-container">
+  <div :class="{ dark: isDarkMode }">
     <!-- Welcome Message -->
     <div class="welcome-message">
       <p v-if="username">Welcome {{ username }}</p>
     </div>
     <!-- Navbar with Logout Button-->
     <div class="navbar">
+      <!-- Display Weather and Location -->
+      <div v-if="weather" class="weather-info">
+        <p class="first-paragraph">{{ location }}</p>
+        <p class="second-paragraph">{{ weather.temp }}°C, {{ weather.description }}</p>
+      </div>
+      <!-- Conditional Rendering of Weather Animations -->
+      <div
+        v-if="weather && weather.description && weather.description.includes('rain')"
+        class="rain"
+      >
+        <div
+          v-for="i in 50"
+          :key="i"
+          class="raindrop"
+          :style="{ left: `${Math.random() * 100}%`, animationDelay: `${Math.random() * 1}s` }"
+        ></div>
+      </div>
+      <div
+        v-if="weather && weather.description && weather.description.includes('snow')"
+        class="snow"
+      >
+        <div
+          v-for="i in 50"
+          :key="i"
+          class="snowflake"
+          :style="{ left: `${Math.random() * 100}%`, animationDelay: `${Math.random() * 2}s` }"
+        ></div>
+      </div>
+
+      <div
+        v-if="
+          (weather && weather.description && weather.description.includes('clear')) ||
+          (weather && weather.description && weather.description.includes('sunny'))
+        "
+        class="sunny"
+      >
+        <div class="sunbeam"></div>
+      </div>
+
+      <div
+        v-if="weather && weather.description && weather.description.includes('clouds')"
+        class="clouds"
+      >
+        <div class="cloud"></div>
+        <div class="cloud"></div>
+        <div class="cloud"></div>
+      </div>
+
+      <div
+        v-if="weather && weather.description && weather.description.includes('thunderstorm')"
+        class="thunderstorm"
+      >
+        <div class="lightning"></div>
+        <div class="cloud"></div>
+      </div>
+
+      <!-- Display Current Date and Time -->
+      <div class="date-time">{{ formattedDateTime }}</div>
+      <!-- Dark Mode Toggle Button -->
+      <button @click="toggleDarkMode" class="toggle-button">
+        <i :class="isDarkMode ? 'fas fa-sun' : 'fas fa-moon'"></i>
+      </button>
+      <!-- Logout Button -->
       <button class="logout-btn" @click="logout">Logout</button>
     </div>
     <!-- Search Bar -->
@@ -111,17 +174,61 @@ export default {
       username: null, // To hold the username
       userId: null, // Set as null initially, will be loaded from localStorage
       tasks: [], // List of tasks fetched from the backend
+      isDarkMode: false,
+      formattedDateTime: '', // For displaying current date and time
+      dateTimeInterval: null, // To store the interval ID for clearing later
+      location: 'Loading...', // Placeholder for location
+      weather: null, // Object to hold weather data
     }
   },
+
   mounted() {
+    // Fetch location and weather data
+    this.getUserLocation()
+    // Initialize the formattedDateTime and set interval to update it every second
+    this.updateDateTime()
+    this.dateTimeInterval = setInterval(this.updateDateTime, 1000)
     // Retrieve username and user_id from localStorage when the component mounts
     this.username = localStorage.getItem('username')
     this.userId = localStorage.getItem('user_id')
     this.fetchTasks()
+    this.isDarkMode = JSON.parse(localStorage.getItem('isDarkMode')) || false
     //this.exportTasksToCSV()
     //this.submitImport()
   },
+  beforeUnmount() {
+    // Clear the interval when component is destroyed
+    if (this.dateTimeInterval) {
+      clearInterval(this.dateTimeInterval)
+    }
+  },
   methods: {
+    updateDateTime() {
+      // Format the current date and time in IST
+      const options = {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: 'short', // Short month (e.g., NOV)
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true, // 12-hour format with AM/PM
+      }
+
+      const dateTime = new Intl.DateTimeFormat('en-IN', options).formatToParts(new Date())
+
+      // Extract parts and manually format the string
+      const day = dateTime.find((part) => part.type === 'day').value
+      const month = dateTime.find((part) => part.type === 'month').value.toUpperCase() // Uppercase for short month
+      const year = dateTime.find((part) => part.type === 'year').value
+      const hour = dateTime.find((part) => part.type === 'hour').value
+      const minute = dateTime.find((part) => part.type === 'minute').value
+      const second = dateTime.find((part) => part.type === 'second').value
+      const ampm = dateTime.find((part) => part.type === 'dayPeriod').value.toUpperCase() // "AM" or "PM"
+
+      this.formattedDateTime = `${day}-${month}-${year} ${hour}:${minute}:${second} ${ampm}`
+    },
     createTask() {
       // Handle task creation logic (e.g., send data to the backend)
       console.log('Task created:', {
@@ -330,11 +437,69 @@ export default {
       document.body.removeChild(link)
     },
 
+    getUserLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords
+            this.fetchWeather(latitude, longitude)
+            this.getLocationName(latitude, longitude)
+          },
+          (error) => {
+            console.error('Error fetching location:', error)
+            this.location = 'Location Unavailable'
+          },
+        )
+      } else {
+        this.location = 'Geolocation Not Supported'
+      }
+    },
+    async fetchWeather(latitude, longitude) {
+      try {
+        const apiKey = 'ef6b679f4a2b2c18f67ecfe5a9d4cc0a' // Replace with your OpenWeatherMap API key
+        const response = await axios.get(
+          `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&appid=${apiKey}`,
+        )
+        const data = response.data
+        this.weather = {
+          temp: data.main.temp.toFixed(1),
+          description: data.weather[0].description,
+          //description: 'thunderstorm' | 'sunny' | 'clear' |'snow',
+        }
+      } catch (error) {
+        console.error(
+          'Error fetching weather data:',
+          error.response ? error.response.data : error.message,
+        )
+        alert('There was an issue fetching the weather data. Please try again.')
+      }
+    },
+    async getLocationName(latitude, longitude) {
+      try {
+        const response = await axios.get(
+          `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+        )
+        const locationData = response.data
+        this.location = `${locationData.address.village != undefined ? locationData.address.village : locationData.address.road},  ${locationData.address.state_district}, ${
+          locationData.address.country
+        }`
+      } catch (error) {
+        console.error('Error fetching location name:', error)
+        this.location = 'Location Unavailable'
+      }
+    },
+
+    toggleDarkMode() {
+      this.isDarkMode = !this.isDarkMode
+      localStorage.setItem('isDarkMode', JSON.stringify(this.isDarkMode))
+    },
+
     logout() {
       // Clear authentication data (e.g., remove token from localStorage)
       localStorage.removeItem('authToken') // Adjust depending on how you're storing the token
       localStorage.removeItem('username')
       localStorage.removeItem('user_id')
+      localStorage.removeItem('isDarkMode')
       // Redirect to login page (assuming you're using Vue Router)
       this.$router.push('/login') // Ensure that you have a login route defined in Vue Router
     },
@@ -614,5 +779,212 @@ export default {
   font-weight: bold;
   margin-bottom: 20px; /* Adjust space as needed */
   color: #28a745; /* Custom green color */
+}
+
+/* Light Theme */
+body {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+/* Dark Theme */
+.dark {
+  background-color: #333333;
+  color: #ffffff;
+}
+
+.toggle-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 24px;
+  color: inherit;
+  margin-right: 15px; /* Add space between dark mode and logout buttons */
+}
+
+.toggle-button:focus {
+  outline: none;
+}
+
+.date-time {
+  font-size: 16px;
+  color: #2850a7;
+  margin-right: 15px;
+}
+
+/* General Weather Container */
+.weather-info {
+  font-size: 0.8em;
+  color: #c94017;
+  text-align: center; /* Aligns text inside .weather-info to the left */
+  position: relative; /* Use absolute or fixed for exact positioning */
+  left: 0; /* Positions .weather-info to the left edge of the container */
+  top: 20px; /* Adjusts distance from the top if needed */
+  padding-left: 10px; /* Optional padding for some space from the edge */
+}
+/* Rain Animation */
+@keyframes rain {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.rain .raindrop {
+  position: absolute;
+  background-color: rgba(255, 255, 255, 0.7);
+  width: 2px;
+  height: 10px;
+  animation: rain 1s infinite linear;
+  animation-delay: calc(0.1s * var(--i));
+}
+
+/* Snow Animation */
+@keyframes snow {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.snow .snowflake {
+  position: absolute;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  width: 5px;
+  height: 5px;
+  animation: snow 3s infinite linear;
+  animation-delay: calc(0.1s * var(--i));
+}
+
+/* Sunny or Dry Weather Animation */
+.sunny {
+  background: linear-gradient(to top, #ff7e5f, #feb47b);
+  animation: sunrise 10s infinite alternate;
+}
+
+@keyframes sunrise {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
+.sunny .sunbeam {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 0, 0.3);
+  top: 0;
+  left: 0;
+  animation: sunbeam 1.5s infinite alternate;
+}
+
+@keyframes sunbeam {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Cloud Animation */
+@keyframes clouds {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.clouds {
+  position: relative;
+  overflow: hidden;
+}
+
+.cloud {
+  position: absolute;
+  background-color: #b0c4de;
+  border-radius: 50%;
+  width: 80px;
+  height: 50px;
+  opacity: 0.8;
+  animation: clouds 15s linear infinite;
+}
+
+.cloud:nth-child(1) {
+  top: 10%;
+  animation-delay: 0s;
+}
+
+.cloud:nth-child(2) {
+  top: 30%;
+  animation-delay: 3s;
+}
+
+.cloud:nth-child(3) {
+  top: 60%;
+  animation-delay: 6s;
+}
+
+/* Thunderstorm Animation */
+@keyframes lightning {
+  0% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+.thunderstorm {
+  position: relative;
+}
+
+.thunderstorm .lightning {
+  position: absolute;
+  width: 2px;
+  height: 100%;
+  background-color: yellow;
+  left: 50%;
+  top: 0;
+  animation: lightning 0.5s ease-in-out infinite;
+}
+
+.thunderstorm .cloud {
+  position: absolute;
+  background-color: #b0c4de;
+  border-radius: 50%;
+  width: 100px;
+  height: 60px;
+  opacity: 0.8;
+  animation: clouds 10s linear infinite;
+  top: 30%;
+  left: 10%;
+}
+/* CSS for the first paragraph */
+.first-paragraph {
+  margin-bottom: 1px; /* Adjust this value to control spacing */
+}
+
+/* CSS for the second paragraph */
+.second-paragraph {
+  margin-top: 1px; /* Adjust this value to control spacing */
 }
 </style>
