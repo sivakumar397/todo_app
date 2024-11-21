@@ -28,6 +28,7 @@
         </tr>
       </tbody>
     </table>
+    <p v-if="tasks.length === 0">No tasks found.</p>
   </div>
 </template>
 
@@ -35,11 +36,17 @@
 import axios from 'axios'
 
 export default {
-  data() {
+  props: {
+    tasks: {
+      type: Array,
+      required: true,
+    },
+  },
+  /*data() {
     return {
       tasks: [], // Store tasks fetched from the API
     }
-  },
+  },*/
   mounted() {
     this.fetchTasks()
   },

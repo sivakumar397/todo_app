@@ -73,18 +73,37 @@
     </div>
     <!-- Search Bar -->
     <div class="search-container">
-      <input v-model="searchTerm" type="text" placeholder="Search tasks..." class="search-input" />
+      <input
+        v-model="searchTerm"
+        @input="applyFilters"
+        type="text"
+        placeholder="Search tasks..."
+        class="search-input"
+      />
 
-      <b-dropdown id="dropdown-1" text="Choose Status" class="m-md-2">
-        <b-dropdown-item>Open</b-dropdown-item>
-        <b-dropdown-item>InProgess</b-dropdown-item>
-        <b-dropdown-item>Finished</b-dropdown-item>
+      <b-dropdown
+        id="status-dropdown"
+        text="Choose Status"
+        class="m-md-2"
+        v-model="filterStatus"
+        @change="applyFilters"
+      >
+        <b-dropdown-item value="Open">Open</b-dropdown-item>
+        <b-dropdown-item value="In_Progress">In_Progress</b-dropdown-item>
+        <b-dropdown-item value="Completed">Completed</b-dropdown-item>
       </b-dropdown>
 
-      <b-dropdown id="dropdown-1" text="Choose Prority" class="m-md-2">
-        <b-dropdown-item>Low</b-dropdown-item>
-        <b-dropdown-item>Medium</b-dropdown-item>
-        <b-dropdown-item>High</b-dropdown-item>
+      <b-dropdown
+        id="priority-dropdown"
+        text="Choose Prority"
+        class="m-md-2"
+        v-model="filterPriority"
+        @change="applyFilters"
+      >
+        <b-dropdown-item value="Highest">Highest</b-dropdown-item>
+        <b-dropdown-item value="High">High</b-dropdown-item>
+        <b-dropdown-item value="Medium">Medium</b-dropdown-item>
+        <b-dropdown-item value="Low">Low</b-dropdown-item>
       </b-dropdown>
 
       <div class="button">
@@ -144,7 +163,7 @@
 
     <!-- Task List -->
     <div>
-      <TaskList :tasks="tasks" @edit-task="editTask" @delete-task="deleteTask" />
+      <TaskList :tasks="filteredTasks" @edit-task="editTask" @delete-task="deleteTask" />
     </div>
   </div>
 </template>
@@ -179,6 +198,9 @@ export default {
       dateTimeInterval: null, // To store the interval ID for clearing later
       location: 'Loading...', // Placeholder for location
       weather: null, // Object to hold weather data
+      filterStatus: '', // Selected status for filtering
+      filterPriority: '', // Selected priority for filtering
+      filteredTasks: [], // Tasks filtered by search and dropdowns
     }
   },
 
@@ -203,6 +225,23 @@ export default {
     }
   },
   methods: {
+    applyFilters() {
+      this.filteredTasks = this.tasks.filter((task) => {
+        const matchesSearch = task.task_name.toLowerCase().includes(this.searchTerm.toLowerCase())
+        //const matchesStatus = this.filterStatus ? task.status === this.filterStatus : true
+        //const matchesPriority = this.filterPriority ? task.priority === this.filterPriority : true
+        const matchesStatus = this.filterStatus === '' || task.status === this.filterStatus
+        const matchesPriority = this.filterPriority === '' || task.priority === this.filterPriority
+        return matchesSearch && matchesStatus && matchesPriority
+      })
+    },
+
+    watch: {
+      // Automatically apply filters when searchTerm, filterStatus, or filterPriority changes
+      searchTerm: 'applyFilters',
+      filterStatus: 'applyFilters',
+      filterPriority: 'applyFilters',
+    },
     updateDateTime() {
       // Format the current date and time in IST
       const options = {
@@ -283,6 +322,7 @@ export default {
 
         if (response.data && Array.isArray(response.data)) {
           this.tasks = response.data
+          this.filteredTasks = [...this.tasks] // Initialize filteredTasks
           console.log('Tasks successfully fetched and assigned:', this.tasks)
         } else {
           console.warn('Unexpected data format or no tasks found in response:', response.data)
